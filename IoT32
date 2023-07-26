@@ -1,0 +1,562 @@
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <LiquidCrystal.h>
+#include <BlynkSimpleEsp32.h>
+#include <BlynkSimpleSerialBLE.h>
+#include <BLESerial.h>
+
+
+
+#define SENSOR_PIN 17 // ESP32 pin GIOP17 connected to DS18B20 sensor's DATA pin
+OneWire oneWire(SENSOR_PIN);
+DallasTemperature DS18B20(&oneWire);
+
+LiquidCrystal lcd(19, 23, 18, 4, 2, 15);
+
+
+float tempC; // temperature in Celsius
+float tempF; // temperature in Fahrenheit
+
+int sensor_pin = A0;
+int value;
+int Soilvalue;
+
+int sensor2_pin = A3;
+int value2;
+int Ldrval;
+
+int Led1 = 25;
+int Led2 = 26;
+int Led3 = 27;
+const int Button1Pin = A6;
+
+int Buzzer = 1;
+
+int Relay1 = 13;
+int Relay2 = 12;
+int Relay3 = 14;
+int Relay4 = 22;
+
+#define BLYNK_TEMPLATE_ID "TMPL6A-xrXvHv"
+#define BLYNK_TEMPLATE_NAME "IoT Transformer Protection"
+#define BLYNK_AUTH_TOKEN "zvAu6Bf4QtGdK6qoRHyO6FDT0vTPVCgR"
+
+BlynkTimer timer;
+
+unsigned int soilval1, tempval1, ldrval1, humdval1, Totalamp;
+char c;
+int i, t, Voltval, Tempval, Currentval, totalload, load1, load2;
+String voice;
+String voice1;
+
+boolean b1flag = false;
+boolean b2flag = false;
+boolean tripflag = false;
+boolean mode = false;
+boolean sw1flag = false;
+
+boolean relay1flag = false;
+boolean relay2flag = false;
+boolean relay3flag = false;
+boolean relay4flag = false;
+
+boolean upflag = false;
+boolean downflag = false;
+boolean tempflag = false;
+
+void setup() {
+  Blynk.begin(BLYNK_AUTH_TOKEN, "WiFi Network :)", "chughtai2021");
+  SerialBT.begin(9600);
+Blynk.begin(SerialBT, BLYNK_AUTH_TOKEN); // Replace 'auth' with your Blynk authentication token
+
+
+
+  DS18B20.begin(); // initialize the DS18B20 sensor
+
+  pinMode(Buzzer, OUTPUT);
+  digitalWrite(Buzzer, LOW);
+
+  pinMode(Relay1, OUTPUT);
+  pinMode(Relay2, OUTPUT);
+  pinMode(Relay3, OUTPUT);
+  pinMode(Relay4, OUTPUT);
+
+  digitalWrite(Relay1, LOW);
+  digitalWrite(Relay2, LOW);
+  digitalWrite(Relay3, LOW);
+  digitalWrite(Relay4, LOW);
+
+  pinMode(Led1, OUTPUT);
+  pinMode(Led2, OUTPUT);
+  pinMode(Led3, OUTPUT);
+
+  pinMode(Button1Pin, INPUT);
+  digitalWrite(Button1Pin, HIGH);
+
+  lcd.begin(16, 2);
+  lcd.setCursor(0, 0);
+  lcd.print("OVER LOAD PROTECTION");
+  lcd.setCursor(0, 1);
+  lcd.print("TEMP MONIT TRANS");
+
+for(int i=0;i<4;i++)
+  {
+    digitalWrite(Led1,HIGH);
+    digitalWrite(Led2,HIGH);
+    digitalWrite(Led3,HIGH);
+    digitalWrite(Buzzer,HIGH);
+   
+    delay(500);
+    digitalWrite(Led1,LOW);
+    digitalWrite(Led2,LOW);
+    digitalWrite(Led3,LOW);
+    digitalWrite(Buzzer,LOW);
+   
+    delay(500);
+  }
+
+ lcd.clear();
+lcd.setCursor(0,0);
+lcd.print(" SUPERVISED BY:");
+lcd.setCursor(0,1);
+lcd.print("  GULRAIZ AHMAD");
+   
+   for(int i=0;i<2;i++)
+  {
+  
+    digitalWrite(Led1,HIGH);
+    digitalWrite(Led2,HIGH);
+    digitalWrite(Led3,HIGH);
+    delay(500);
+    digitalWrite(Led1,LOW);
+    digitalWrite(Led2,LOW);
+    digitalWrite(Led3,LOW);
+    delay(500);
+  } 
+
+lcd.clear();
+lcd.setCursor(0,0);
+lcd.print("    DESIGN     ");
+lcd.setCursor(0,1);
+lcd.print("      BY      ");
+ for(int i=0;i<2;i++)
+  {
+     
+   digitalWrite(Led1,HIGH);
+    digitalWrite(Led2,HIGH);
+    digitalWrite(Led3,HIGH);
+    delay(500);
+    digitalWrite(Led1,LOW);
+    digitalWrite(Led2,LOW);
+    digitalWrite(Led3,LOW);
+    delay(500);
+  }
+ lcd.clear();
+lcd.setCursor(0,0);
+lcd.print("HAROON AHMAD");
+lcd.setCursor(0,1);
+lcd.print("BEET-023R19-13");
+ 
+  
+  
+   for(int i=0;i<2;i++)
+  {
+     
+   digitalWrite(Led1,HIGH);
+    digitalWrite(Led2,HIGH);
+    digitalWrite(Led3,HIGH);
+    delay(500);
+    digitalWrite(Led1,LOW);
+    digitalWrite(Led2,LOW);
+    digitalWrite(Led3,LOW);
+    delay(500);
+  } 
+lcd.clear();
+lcd.setCursor(0,0);
+lcd.print("ZORAIZ AHMAD");
+lcd.setCursor(0,1);
+lcd.print("BEET-023R19-06");
+ 
+  
+  
+   for(int i=0;i<2;i++)
+  {
+     
+   digitalWrite(Led1,HIGH);
+    digitalWrite(Led2,HIGH);
+    digitalWrite(Led3,HIGH);
+    delay(500);
+    digitalWrite(Led1,LOW);
+    digitalWrite(Led2,LOW);
+    digitalWrite(Led3,LOW);
+    delay(500);
+  } 
+  
+mode=0;  
+load1=2;
+load2=2;
+
+  lcd.clear();
+ digitalWrite(Buzzer,HIGH);delay(200);digitalWrite(Buzzer,LOW);delay(200);
+ digitalWrite(Buzzer,HIGH);delay(200);digitalWrite(Buzzer,LOW);delay(200);
+ digitalWrite(Buzzer,HIGH);delay(200);digitalWrite(Buzzer,LOW);delay(200);
+ digitalWrite(Buzzer,HIGH);delay(200);digitalWrite(Buzzer,LOW);
+}
+
+  // Other initialization code can be added here
+
+
+// Define Blynk virtual pins
+#define V1 V10
+#define V2 V11
+#define V3 V12
+#define V4 V13
+#define V5 V14
+#define V6 V15
+#define V7 V16
+
+BLYNK_WRITE(V1) {
+  int value = param.asInt();
+  relay1flag = (value == 1);
+}
+
+BLYNK_WRITE(V2) {
+  int value = param.asInt();
+  relay2flag = (value == 1);
+}
+
+BLYNK_WRITE(V3) {
+  int value = param.asInt();
+  relay3flag = (value == 1);
+}
+
+BLYNK_WRITE(V4) {
+  int value = param.asInt();
+  relay4flag = (value == 1);
+}
+
+BLYNK_WRITE(V5) {
+  int value = param.asInt();
+  tripflag = (value == 1);
+}
+
+BLYNK_WRITE(V6) {
+  int value = param.asInt();
+  mode = (value == 1);
+}
+
+void loop() {
+  Blynk.run();
+  timer.run();
+  
+  BLYNK_WRITE(V1) {
+  button1State = param.asInt(); // Update button1State based on Blynk app button state
+}
+
+BLYNK_WRITE(V2) {
+  String voice = param.asStr(); // Read voice command from Blynk app
+  // Process voice commands as shown in the original code
+  // For example: if (voice == "*1") { relay1flag = 1; /*...*/ }
+    
+  if (voice.length() < 0)voice=""; 
+  if (voice.length() > 0) 
+   {
+     
+if(voice == "*1")    {Serial.println("1");voice1="1";voice="";}
+if(voice == "*load one on")    {Serial.println("1");voice1="1";voice="";}
+if(voice == "*light one on")    {Serial.println("1");voice1="1";voice="";}
+if(voice == "*light ovn on")    {Serial.println("1");voice1="1";voice="";}
+
+if(voice == "*2")    {Serial.println("2");voice1="2";voice="";} 
+if(voice == "*light one of")    {Serial.println("2");voice1="2";voice="";}
+if(voice == "*light one off")    {Serial.println("2");voice1="2";voice="";}
+if(voice == "*light one hulf")    {Serial.println("2");voice1="2";voice="";}  
+if(voice == "*load one of")    {Serial.println("2");voice1="2";voice="";} 
+if(voice == "*light 1")    {Serial.println("2");voice1="2";voice="";} 
+
+if(voice == "*light one")    {Serial.println("8");voice1="8";voice="";}
+if(voice == "*light 1")    {Serial.println("8");voice1="8";voice="";}
+if(voice == "*load one")    {Serial.println("8");voice1="8";voice="";}
+if(voice == "*load 1")    {Serial.println("8");voice1="8";voice="";}
+
+if(voice == "*3")    {Serial.println("3");voice1="3";voice="";} 
+if(voice == "*load two on")    {Serial.println("3");voice1="3";voice="";} 
+if(voice == "*load to on")    {Serial.println("3");voice1="3";voice="";} 
+if(voice == "*light to on")    {Serial.println("3");voice1="3";voice="";} 
+if(voice == "*light two on")    {Serial.println("3");voice1="3";voice="";} 
+if(voice == "*light 2 on")    {Serial.println("3");voice1="3";voice="";} 
+
+if(voice == "*4")    {Serial.println("4");voice1="4";voice="";} 
+if(voice == "*load two of")    {Serial.println("4");voice1="4";voice="";}
+if(voice == "*load two off")    {Serial.println("4");voice1="4";voice="";}
+if(voice == "*load to of")    {Serial.println("4");voice1="4";voice="";}
+if(voice == "*load to off")    {Serial.println("4");voice1="4";voice="";}
+if(voice == "*light to of")    {Serial.println("4");voice1="4";voice="";}
+if(voice == "*light to off")    {Serial.println("4");voice1="4";voice="";}
+if(voice == "*light two of")    {Serial.println("4");voice1="4";voice="";}
+if(voice == "*light two off")    {Serial.println("4");voice1="4";voice="";}
+if(voice == "*light 2 of")    {Serial.println("4");voice1="4";voice="";}
+
+if(voice == "*light to")    {Serial.println("7");voice1="7";voice="";} 
+if(voice == "*light two")    {Serial.println("7");voice1="7";voice="";} 
+if(voice == "*light 2")    {Serial.println("7");voice1="7";voice="";} 
+if(voice == "*load to")    {Serial.println("7");voice1="7";voice="";}
+if(voice == "*load two")    {Serial.println("7");voice1="7";voice="";}
+if(voice == "*load 2")    {Serial.println("7");voice1="7";voice="";}
+
+if(voice == "*5")    {Serial.println("5");voice1="5";voice="";} 
+if(voice == "*close")    {Serial.println("5");voice1="5";voice="";} 
+if(voice == "*trip")    {Serial.println("5");voice1="5";voice="";} 
+if(voice == "*automatic")    {Serial.println("5");voice1="5";voice="";} 
+
+if(voice == "*6")    {Serial.println("6");voice1="6";voice="";} 
+if(voice == "*normal")    {Serial.println("6");voice1="6";voice="";} 
+if(voice == "*manual")    {Serial.println("6");voice1="6";voice="";} 
+
+if(voice == "*9")    {Serial.println("9");voice1="9";voice="";} 
+
+  if(voice1 == "1") 
+      { 
+       
+       lcd.setCursor(13,1);
+       lcd.print("1");
+       //if(mode==1)
+       relay1flag=1;   lcd.begin(16, 2);     
+       digitalWrite(Buzzer, HIGH); delay(200);  digitalWrite(Buzzer, LOW);  
+      }   
+ 
+if(voice1 == "2") 
+      { 
+       
+       lcd.setCursor(13,1);
+       lcd.print("2");
+       //if(mode==1)
+       relay1flag=0; lcd.begin(16, 2);
+       digitalWrite(Buzzer, HIGH); delay(200);  digitalWrite(Buzzer, LOW);  
+      }   
+ if(voice1 == "3") 
+      { 
+       
+       lcd.setCursor(13,1);
+       lcd.print("3");
+       //if(mode==1)
+       relay2flag=1; lcd.begin(16, 2);
+       digitalWrite(Buzzer, HIGH); delay(200);  digitalWrite(Buzzer, LOW);  
+      }   
+      if(voice1 == "4") 
+      { 
+       
+       lcd.setCursor(13,1);
+       lcd.print("4");
+       //if(mode==1)
+       relay2flag=0; lcd.begin(16, 2);
+       digitalWrite(Buzzer, HIGH); delay(200);  digitalWrite(Buzzer, LOW);  
+      }  
+       if(voice1 == "5") 
+      { 
+       
+       lcd.setCursor(13,1);
+       lcd.print("5");
+       //if(mode==1)
+       relay3flag=1;relay4flag=1;tripflag=1;
+       digitalWrite(Buzzer, HIGH); delay(200);  digitalWrite(Buzzer, LOW);  
+      }    
+      if(voice1 == "6") 
+      { 
+       
+       lcd.setCursor(13,1);
+       lcd.print("6");
+       //if(mode==1)
+       relay3flag=0;relay4flag=0;tripflag=0;
+       digitalWrite(Buzzer, HIGH); delay(200);  digitalWrite(Buzzer, LOW);  
+      }    
+      if(voice1 == "7") 
+      { 
+       
+       lcd.setCursor(13,1);
+       lcd.print("7");
+       //if(mode==1)
+       relay2flag=!relay2flag;
+       digitalWrite(Buzzer, HIGH); delay(200);  digitalWrite(Buzzer, LOW);  
+      }    
+      if(voice1 == "8") 
+      { 
+       
+       lcd.setCursor(13,1);
+       lcd.print("8");
+       //if(mode==1)
+       relay1flag=!relay1flag;
+       digitalWrite(Buzzer, HIGH); delay(200);  digitalWrite(Buzzer, LOW);  
+      }    
+   if(voice1 == "9") 
+      { 
+       
+       lcd.setCursor(13,1);
+       lcd.print("9");
+       mode=!mode;
+       digitalWrite(Relay1,LOW);digitalWrite(Relay2,LOW);SerialBT.begin();
+       digitalWrite(Buzzer, HIGH); delay(200);  digitalWrite(Buzzer, LOW);  
+      }   
+      
+  voice1="";        
+  voice="";
+ 
+}
+//=====================================================================
+if(relay1flag==1)digitalWrite(Relay3,HIGH);
+if(relay1flag==0)digitalWrite(Relay3,LOW);
+if(relay2flag==1)digitalWrite(Relay4,HIGH);
+if(relay2flag==0)digitalWrite(Relay4,LOW);
+//=======================================================================
+
+if(mode==0)
+{
+lcd.setCursor(15,1);
+lcd.print("A"); 
+}
+if(mode==1)
+{
+lcd.setCursor(15,1);
+lcd.print("M"); 
+
+}
+if(relay1flag==1)b1flag=1;
+else b1flag=0;
+if(relay2flag==1)b2flag=1;
+else b2flag=0;
+//================================================
+if( button1State==LOW && sw1flag==0) 
+  {
+   sw1flag=1;
+  mode=!mode;
+  lcd.begin(16, 2);   
+   lcd.begin(16, 2);SerialBT.begin();
+   digitalWrite(Relay1,LOW);digitalWrite(Relay2,LOW);
+   } 
+ if( button1State==HIGH && sw1flag==1) {sw1flag=0;} 
+
+
+ //===========================================
+  value= analogRead(sensor_pin); 
+  value = map(value,4095,1400,0,350);
+  //if(value>100)value=100; 
+  Voltval=value;  
+  //soilval1=Soilvalue;
+ lcd.setCursor(0,0);
+lcd.print("V=");
+lcd.setCursor(2,0);
+lcd.print("    ");
+lcd.setCursor(2,0);
+lcd.print(Voltval);
+//===========================================
+if(Voltval>250)upflag=1;
+else upflag=0;
+
+if(Voltval<170)downflag=1;
+else downflag=0;
+//===========================================
+   if(upflag==1 || downflag==1)digitalWrite(Led3,HIGH);
+ else digitalWrite(Led3,LOW); 
+ //=========================================
+ //=========================================
+ 
+  DS18B20.requestTemperatures();       // send the command to get temperatures
+  tempC = DS18B20.getTempCByIndex(0);  // read temperature in °C
+  tempF = tempC * 9 / 5 + 32; // convert °C to °F
+tempval1=tempC;   
+Tempval=tempval1;
+lcd.setCursor(6,0);
+lcd.print("T=");
+lcd.setCursor(8,0);
+lcd.print("   ");
+lcd.setCursor(8,0);
+lcd.print(Tempval);
+
+if(Tempval>40)digitalWrite(Led2,HIGH);
+ else digitalWrite(Led2,LOW); 
+//============================================
+if(Tempval>40)tempflag=1;
+else tempflag=0;
+
+if(tripflag==0)
+{
+if(Totalamp==1)Currentval2=0.45;
+if(Totalamp==2)Currentval2=0.90;
+if(Totalamp==0)Currentval2=0.00;
+}
+else
+{
+Currentval2=0.00;
+}
+//============================================ 
+value2= analogRead(sensor2_pin); 
+ Currentval=value2;  
+ Totalamp=b1flag+b2flag;
+ lcd.setCursor(11,0);
+lcd.print("A=");
+lcd.setCursor(13,0);
+lcd.print("   ");
+lcd.setCursor(13,0);
+lcd.print(Currentval2,2);
+//===========================================
+//==============================================
+//============================================== 
+SerialBT.print(soilval1);
+SerialBT.print(",");
+SerialBT.print(tempval1);
+SerialBT.print(",");
+ SerialBT.print(Currentval2);
+SerialBT.print(",");
+SerialBT.print(ldrval1);
+SerialBT.println(",");
+
+//========================================================================
+
+//========================================================================
+//========================================================================
+if(mode==1)
+{ 
+//if(relay1flag==1)digitalWrite(Relay3,HIGH);
+//if(relay1flag==0)digitalWrite(Relay3,LOW);
+//if(relay2flag==1)digitalWrite(Relay4,HIGH);
+//if(relay2flag==0)digitalWrite(Relay4,LOW);
+
+if(relay3flag==1)digitalWrite(Relay1,HIGH);
+if(relay3flag==0)digitalWrite(Relay1,LOW);
+if(relay4flag==1)digitalWrite(Relay2,HIGH);
+if(relay4flag==0)digitalWrite(Relay2,LOW);
+
+}
+//===================================================================================
+//===================================================================================
+if(mode==0)
+{ 
+
+if(upflag==1 || downflag==1 || tempflag==1 || Totalamp==2)
+{
+digitalWrite(Relay1,HIGH);digitalWrite(Relay2,HIGH);digitalWrite(Buzzer,HIGH);tripflag=1; 
+}
+else
+{
+digitalWrite(Relay1,LOW);digitalWrite(Relay2,LOW);digitalWrite(Buzzer,LOW);tripflag=0;
+}
+
+}
+//====================================================================================
+//====================================================================================
+ delay(20);
+
+  // Remember to use Blynk.virtualWrite() to update Blynk widgets based on relay states, etc.
+  // Update sensor readings on Blynk app
+  // Your existing code can be placed here, but remove any Bluetooth-related code.
+  // For example, you can read sensor values and update Blynk app widgets.
+  // If needed, create BLYNK_WRITE functions for other Blynk widgets in the same manner as above.
+
+  
+}
+Blynk.virtualWrite(V3, Tempval); // Assuming V3 is a Value Display widget for temperature
+// Similarly, update other sensor readings to appropriate Virtual Pins.
+
+}
+
+}
